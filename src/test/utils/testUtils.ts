@@ -277,9 +277,9 @@ export async function launchDashboardAction(item: DefaultTreeItem, action: strin
     }
 
     logger.info("Launching action: " + action);
-    if (process.platform === 'darwin') {//Only for MAC platform
+    if (process.platform === 'darwin' || process.platform === 'linux') {// MAC and Linux: run via command palette
         await MapContextMenuforMac(item, actionMac);
-    } else {  // NON MAC platforms
+    } else {  // Other platforms (Windows): use the tree item context menu
         logger.info("before contextmenu");
         const menuItem = await item.openContextMenu();
         logger.info("before select");
