@@ -593,7 +593,25 @@ export async function waitForDebuggerAttach(): Promise<boolean> {
         return true;
     } catch (error) {
         logger.error('Failed to detect debugger attachment - DebugToolbar did not appear', error);
+        dumpDebugDiag();
         return false;
+    }
+}
+
+// TEMPORARY diagnostics. Do not merge.
+function dumpDebugDiag(): void {
+    const os = require('os');
+    const cp = require('child_process');
+    const diagFile = path.join(os.tmpdir(), 'liberty-diag.log');
+    try {
+        console.log('===== [DIAG] extension diag log =====');
+        console.log(fs.existsSync(diagFile) ? fs.readFileSync(diagFile, 'utf8') : '(no diag file)');
+        const root = path.join(__dirname, '..', '..', '..', 'src', 'test', 'resources');
+        console.log('===== [DIAG] server.env files (mtime + WLP_DEBUG_ADDRESS only, no other contents) =====');
+        console.log(cp.execSync(`find "${root}" -name server.env -not -path "*/src/*/src/*" -exec ls -l --time-style=full-iso {} \\; -exec grep -H '^WLP_DEBUG_ADDRESS=' {} \\; 2>&1 || true`, { encoding: 'utf8' }));
+        console.log(`===== [DIAG] now ${new Date().toISOString()} =====`);
+    } catch (e: any) {
+        console.log(`[DIAG] dump failed: ${e?.message}`);
     }
 }
 

@@ -4,6 +4,7 @@
  */
 import * as vscodePath from "path";
 import * as vscode from "vscode";
+import { diag } from "../util/diag";
 import * as gradleUtil from "../util/gradleUtil";
 import * as util from "../util/helperUtil";
 import { computeContextValue } from "../util/helperUtil";
@@ -93,6 +94,7 @@ export class LibertyProject extends vscode.TreeItem {
 	}
 
 	public setState(state: DevModeState | undefined): void {
+		diag(`[state] ${this.label}: ${this.state} -> ${state}`);
 		this.state = state;
 		this.contextValue = computeContextValue(this.baseContextValue, state);
 		this.iconPath = this.getStatusIconPath(state) as vscode.TreeItem["iconPath"];
@@ -182,6 +184,7 @@ export class LibertyProject extends vscode.TreeItem {
 
 	public enableShellListener(execution: vscode.TerminalShellExecution, onStateChange: (project: LibertyProject) => void): void {
 		console.log(`[startMonitoring] called for ${this.label}, state=${this.state}`);
+		diag(`[shell] listener attached for ${this.label}, state=${this.state}`);
 		this.cleanupShellListener();
 		const stream = execution.read();
 		let disposed = false;

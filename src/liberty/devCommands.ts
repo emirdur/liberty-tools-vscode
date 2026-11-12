@@ -6,6 +6,7 @@ import * as fs from "fs";
 import * as fse from "fs-extra";
 import * as Path from "path";
 import * as vscode from "vscode";
+import { diag } from "../util/diag";
 import * as helperUtil from "../util/helperUtil";
 import { localize } from "../util/i18nUtil";
 import { QuickPickItem } from "vscode";
@@ -269,6 +270,7 @@ export async function startDevModeWithDebugger(libProject?: LibertyProject | und
         const debugPort = resolveDebugPort(projectDir);
         const debugParam = buildDevModeDebugPortFlag(isMavenProject, debugPort);
 
+        diag(`[debugStart] ${targetProject.getLabel()} projectDir=${projectDir} debugPort=${debugPort} param=${debugParam} installDir=${targetProject.installDirectory}`);
         await sendDevModeCommand(result.terminal, targetProject, MAVEN_GOAL_DEV, GRADLE_TASK_DEV, debugParam, result.javaHome);
         targetProject.setState(DevModeState.Starting);
         projectProvider.notifyDevModeChanged(targetProject);
@@ -296,6 +298,7 @@ export async function startDevModeWithDebugger(libProject?: LibertyProject | und
             return;
         }
 
+        diag(`[debugStart] watch base=${watchPattern.baseUri?.fsPath ?? (watchPattern as any).base} pattern=${watchPattern.pattern}`);
         const watcher = vscode.workspace.createFileSystemWatcher(watchPattern);
 
         // Reads server.env and, when WLP_DEBUG_ADDRESS is present, waits for the Liberty
@@ -303,12 +306,15 @@ export async function startDevModeWithDebugger(libProject?: LibertyProject | und
         // This prevents the "Failed to attach" IOException that occurs when the JVM debug
         // agent socket is not yet open, even though server.env has already been written.
         const tryAttach = async (uri: vscode.Uri) => {
+            diag(`[watcher] event ${uri.fsPath} state=${targetProject.state}`);
             // Skip files in bin/classes directories.
             if (uri.fsPath.includes("bin") || uri.fsPath.includes("classes")) {
+                diag(`[watcher] skipped (bin/classes in path)`);
                 return;
             }
             try {
                 const port = parseDebugPortFromServerEnv(fse.readFileSync(uri.fsPath, "utf8"));
+                diag(`[watcher] parsed port=${port}`);
                 if (port === undefined) {
                     return; // WLP_DEBUG_ADDRESS not written yet — wait for the next event.
                 }
@@ -341,6 +347,7 @@ export async function startDevModeWithDebugger(libProject?: LibertyProject | und
                     check();
                 });
 
+                diag(`[attach] wait done state=${targetProject.state}`);
                 // Guard: if timeout fired the state is still Starting — don't attach.
                 if (targetProject.state !== DevModeState.ServerStarted &&
                     targetProject.state !== DevModeState.Running) {
@@ -357,11 +364,14 @@ export async function startDevModeWithDebugger(libProject?: LibertyProject | und
                     "port": port,
                     "cwd": cwd,
                     "projectName": targetProject.getLabel()
-                }).then(() => {
+                }).then((ok) => {
+                    diag(`[attach] startDebugging resolved ${ok} port=${port}`);
                 }, err => {
+                    diag(`[attach] startDebugging error ${err?.message}`);
                     vscode.window.showErrorMessage(localize("liberty.dev.attach.debugger.failed.with.error", err.message));
                 });
-            } catch {
+            } catch (e: any) {
+                diag(`[watcher] read error ${e?.message}`);
                 // File may not be readable yet — the next event will retry.
             }
         };
